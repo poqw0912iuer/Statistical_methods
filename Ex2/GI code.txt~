@@ -1,0 +1,110 @@
+
+dmvnorm.canonical <- function(x, b, Q, log=TRUE, memory=list(nnzcolindices=6467)){
+  
+  # some checks
+  if (length(x) != NCOL(Q)) {
+    stop("x and Q have non-conforming size")
+  }
+  if (length(b) != NROW(Q)) {
+    stop("b and Q have non-conforming size")
+  }
+  # compute the log determinant
+  logdet <- as.numeric(determinant(Q, logarithm=TRUE, memory=memory)$modulus)
+  # get the mean
+  mu <- solve.spam(Q, b, memory=memory)
+  xmu <- (x-mu)
+  # get the log-density
+  logdens <- (- length(x) * log(2*pi) + logdet - t(xmu)%*%Q%*%xmu)/2
+  
+  if(log)
+    return(logdens)
+  exp(logdens)
+}
+
+
+
+GI <- function(N, thin, burn_in, memory=list(nnzcolindices=6467)){
+    container <- matrix(0, ncol = 5, nrow = N)
+    n <- 544
+    yes <- 0
+    no <- 0
+    alpha_u <- 1
+    alpha_v <- 1
+    beta_u <- 0.01
+    beta_v <- 0.01
+    Y = matrix(Y, ncol = 1)
+    E = matrix(E, ncol = 1)
+    u <- rep(.2, n)
+    u = matrix(u, ncol = 1)
+    eta <- rep(1, n)
+    eta = matrix(eta, ncol = 1)
+    for(i in 1:N){
+       for(j in 1:thin){
+            Ku <- rgamma(1, (n-2)/2+alpha_u, beta_u+t(u)%*%R%*%u*0.5)
+	    Kv <- rgamma(1, n/2+alpha_v, beta_v+t(eta-u)%*%(eta-u)*0.5)
+	    u <- rmvnorm.canonical(1, Kv*eta, Ku*R+Kv*diag.spam(1,n))
+	    u <- t(u)
+	    b <- Y+E*exp(eta)*(eta-1)
+	    c <- E*exp(eta)
+	    new <- rmvnorm.canonical(1, Kv*u+b, Kv*diag.spam(1,n)+diag(c))
+            new <- t(new)
+	    log.target.ratio <- {(-t(new)%*%new*Kv*0.5+t(new)%*%u*Kv+t(new)%*%Y-t(exp(new))%*%E)
+				-(-t(eta)%*%eta*Kv*0.5+t(eta)%*%u*Kv+t(eta)%*%Y-t(exp(eta))%*%E)}
+	    b_new <- Y+E*exp(new)*(new-1)
+	    c_new <- E*exp(new)
+	    Q_num <- Kv*diag.spam(1,n)+diag(c_new)
+	    Q_den <- Kv*diag.spam(1,n)+diag(c)
+	    Epsilon_num <- Kv*u+b_new
+	    Epsilon_den <- Kv*u+b 
+
+            log.proposal.ratio <- {dmvnorm.canonical(eta, Epsilon_num, Q_num, log=TRUE)
+                                  -dmvnorm.canonical(new, Epsilon_den, Q_den, log=TRUE)}
+	   
+	    alpha <- min(0, log.target.ratio+log.proposal.ratio)
+	    if(log(runif(1)) <= alpha){
+	        eta <- new
+		yes <- yes + 1	
+	    }
+	    else{
+ 		no <- no + 1
+ 	    }
+
+        }
+	acceptance <- yes/(yes + no) * 100
+	container[i,] <- c(Ku, Kv, u[387], eta[387], acceptance)
+    }    
+    container
+}
+t1 <- Sys.time()
+GI(2000,1,1)->vol
+t2 <- Sys.time()
+t2 - t1
+
+par(mfrow=c(3,1))
+plot(vol[,1], type="l")
+acf(vol[,1], lag = 50)
+truehist(vol[,1])
+
+par(mfrow=c(3,1))
+plot(vol[,2], type="l")
+acf(vol[,2], lag = 50)
+truehist(vol[,2])
+
+par(mfrow=c(3,1))
+plot(vol[,3], type="l")
+acf(vol[,3], lag = 50)
+truehist(vol[,3])
+
+par(mfrow=c(3,1))
+plot(vol[,4], type="l")
+acf(vol[,4], lag = 50)
+truehist(vol[,4])
+
+par(mfrow=c(3,1))
+plot(vol[,5], type="l")
+acf(vol[,5], lag = 50)
+truehist(vol[,5])
+
+par(mfrow=c(1,1))
+
+
