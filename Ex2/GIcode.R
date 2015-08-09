@@ -1,28 +1,3 @@
-
-dmvnorm.canonical <- function(x, b, Q, log=TRUE, memory=list(nnzcolindices=6467)){
-  
-  # some checks
-  if (length(x) != NCOL(Q)) {
-    stop("x and Q have non-conforming size")
-  }
-  if (length(b) != NROW(Q)) {
-    stop("b and Q have non-conforming size")
-  }
-  # compute the log determinant
-  logdet <- as.numeric(determinant(Q, logarithm=TRUE, memory=memory)$modulus)
-  # get the mean
-  mu <- solve.spam(Q, b, memory=memory)
-  xmu <- (x-mu)
-  # get the log-density
-  logdens <- (- length(x) * log(2*pi) + logdet - t(xmu)%*%Q%*%xmu)/2
-  
-  if(log)
-    return(logdens)
-  exp(logdens)
-}
-
-
-
 GI <- function(Y, E, R, N, thin, burn_in, memory=list(nnzcolindices=6467)){
     n <- 544
     yes <- 0
